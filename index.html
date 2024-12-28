@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <style>
+        .dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+        }
+
+        .over {
+            background-color: lightgreen;
+        }
+
+        .checkbox {
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <section class="section">
+        <div class="container">
+            <h1 class="title has-text-centered is-1">
+                Todo List
+            </h1>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="box">
+            <div>
+                <input type="file" id="file-json" accept=".json" style="display: none;"/>
+                <button class="button is-pulled-left"  id="load-json" >Load from JSON</button>
+                <button class="button is-pulled-right" id="save-json">Save to JSON</button>
+                <br>
+                <br>
+            </div>
+
+            <div>
+                <ul id="list">
+
+                </ul>
+            </div>
+
+            <div>
+                <br>
+                <button class="button is-primary is-pulled-left" id="add-item">Add Item</button>
+                <button class="button is-danger is-pulled-right" id="clear">Clear</button>
+                <br>
+                <br>
+            </div>
+        </div>
+
+    </section>
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const fileInput = document.getElementById('file-json');
+
+            document.getElementById('add-item').addEventListener('click', add_item);
+            document.getElementById('clear').addEventListener('click', clear);
+            document.getElementById('save-json').addEventListener('click', to_json);
+            document.getElementById('load-json').addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function(event) {
+            let text = "";
+
+            const file = event.target.files[0]; 
+
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const jsonContent = JSON.parse(e.target.result);
+                        text = JSON.stringify(jsonContent, null, 2);
+                    } catch (error) {
+                        text="[]";
+                        alert('Error reading JSON file: ' + error.message);
+                    } finally {
+                        clear();
+                        let input_array = JSON.parse(text);
+                        console.log(input_array)
+
+                        const list = document.getElementById('list');
+
+                        for(let i =0; i < input_array.size; i++) {
+                            add_item();
+                        }
+
+                        const divs = list.querySelectorAll('div');
+                        let index = 0;
+                        valid = true;
+
+                        divs.forEach((div) => {
+                            if(!valid) {
+                                return;
+                            }
+
+                            if (!div.classList.contains('box')) {
+                                return;
+                            }
+
+                            if(input_array[index].done == undefined || input_array[index].task == undefined) {
+                                valid = false;
+                                clear();
+                                alert('Error JSON wrong format');
+                            }
+                            
+
+                        div.querySelector('.checkbox').checked = input_array[index].done;
+                        div.querySelector('.input').value = input_array[index].task;
+                        index++;
+                        });
+                }
+                };
+                
+                reader.readAsText(file);
+            }
+        });
+
+            function to_json() {
+
+                const list = document.getElementById('list');
+                const divs = list.querySelectorAll('div');
+
+                let output = [];
+
+                divs.forEach((div) => {
+                    if (!div.classList.contains('box')) {
+                        return;
+                    }
+
+                    const div_checkbox = div.querySelector('.checkbox').checked || false;
+                    const div_input = div.querySelector('.input').value || "";
+
+                    output.push({
+                        "task": div_input,
+                        "done": div_checkbox
+                    })
+
+                });
+
+                const file_content = JSON.stringify(output, null, 2);
+                const blob = new Blob([file_content], { type: 'application/json' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+
+                link.href = url;
+                link.download = 'output.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+            }
+
+            function clear() {
+                const list = document.getElementById('list');
+                while (list.firstChild) {
+                    list.removeChild(list.firstChild);
+                }
+
+                const new_div = document.createElement('div');
+                new_div.setAttribute('draggable', 'true');
+                new_div.classList.add('box');
+                new_div.innerHTML = '<li><div class="columns is-mobile"><div class="column is-narrow"><input type="checkbox" class="checkbox"/></div><div class="column"><input class="input" type="text" placeholder="Enter Item..." /></div></div></li>';
+                list.appendChild(new_div);
+
+                reset();
+
+            }
+
+            function add_item() {
+                const list = document.getElementById('list');
+                const new_div = document.createElement('div');
+                new_div.setAttribute('draggable', 'true');
+                new_div.classList.add('box');
+                new_div.innerHTML = '<li><div class="columns is-mobile"><div class="column is-narrow"><input type="checkbox" class="checkbox"/></div><div class="column"><input class="input" type="text" placeholder="Enter Item..." /></div></div></li>';
+                list.appendChild(new_div);
+
+                reset();
+            }
+
+            function reset() {
+                const list = document.getElementById('list');
+                const divs = list.querySelectorAll('div');
+
+                let selected_element = null;
+
+                divs.forEach((div) => {
+                    if (!div.classList.contains('box')) {
+                        return;
+                    }
+
+                    const li = div.querySelector('li');
+
+                    div.addEventListener('dragstart', (e) => {
+                        div.classList.add('dragging');
+                        selected_element = div;
+                    });
+
+                    div.addEventListener('dragend', (e) => {
+                        div.classList.remove('dragging');
+                        selected_element = null;
+                    });
+
+                    div.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        div.classList.add('over');
+                    });
+
+                    div.addEventListener('dragleave', (e) => {
+                        div.classList.remove('over');
+                    });
+
+                    div.addEventListener('drop', (e) => {
+                        div.classList.remove('over');
+
+                        if (selected_element == null) {
+                            return;
+                        }
+
+                        const div_checkbox = div.querySelector('.checkbox').checked || false;
+                        const div_input = div.querySelector('.input').value || "";
+
+                        const selected_checkbox = selected_element.querySelector('.checkbox').checked || false;
+                        const selected_input = selected_element.querySelector('.input').value || "";
+
+                        const buff = selected_element.innerHTML;
+                        selected_element.innerHTML = div.innerHTML;
+                        div.innerHTML = buff;
+
+                        div.querySelector('.checkbox').checked = selected_checkbox;
+                        div.querySelector('.input').value = selected_input;
+
+                        selected_element.querySelector('.checkbox').checked = div_checkbox;
+                        selected_element.querySelector('.input').value = div_input;
+
+                        selected_element = null;
+
+                    });
+
+                    li.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        div.classList.add('over');
+                    });
+
+                    li.addEventListener('dragleave', (e) => {
+                        div.classList.remove('over');
+                    });
+
+                    li.addEventListener('drop', (e) => {
+                        div.classList.remove('over');
+
+                        if (selected_element == null) {
+                            return;
+                        }
+
+                        const div_checkbox = div.querySelector('.checkbox').checked || false;
+                        const div_input = div.querySelector('.input').value || "";
+
+                        const selected_checkbox = selected_element.querySelector('.checkbox').checked || false;
+                        const selected_input = selected_element.querySelector('.input').value || "";
+
+
+                        const buff = selected_element.innerHTML;
+                        selected_element.innerHTML = div.innerHTML;
+                        div.innerHTML = buff;
+
+                        div.querySelector('.checkbox').checked = selected_checkbox;
+                        div.querySelector('.input').value = selected_input;
+
+                        selected_element.querySelector('.checkbox').checked = div_checkbox;
+                        selected_element.querySelector('.input').value = div_input;
+                        selected_element = null;
+                    });
+                });
+            }
+
+
+            clear();
+
+        });
+    </script>
+</body>
+
+</html>
